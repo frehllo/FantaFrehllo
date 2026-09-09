@@ -1,0 +1,12 @@
+{
+  "name": "asta-fantacalcio",
+  "version": "1.0.0",
+  "description": "Web-app per l'asta del fantacalcio 2026/27",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
