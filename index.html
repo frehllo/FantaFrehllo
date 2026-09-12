@@ -690,14 +690,19 @@ function renderBallottaggi(){
 
 function renderPortieri(){
   const col={'TOP':'red','SEMITOP':'gold','EQUILIBRIO':'green','LOW COST':'blue'};
-  let h='<div class="section-intro">Terne consigliate. Prendi un titolare + il vice abbinato per non restare mai scoperto.</div><div class="cards">';
+  let h='<div class="section-intro">Terne consigliate. Prendi un titolare + il vice abbinato per non restare mai scoperto. Tocca un nome per vedere statistiche e i portieri della sua squadra.</div><div class="cards">';
   DATA.portieri.forEach(x=>{
-    h+=`<div class="card"><h4>${x.tit} <span style="font-size:.8rem;color:var(--chalk-dim)">${x.sq}</span><span class="r">${x.cr} cr</span></h4>
+    // trova il portiere titolare tra i PLAYERS (per renderlo toccabile)
+    const tp=PLAYERS.find(pl=>pl.r==='P'&&pl.n===x.tit&&pl.s===x.sq)||PLAYERS.find(pl=>pl.r==='P'&&pl.n===x.tit);
+    const titTap=tp?`<button class="por-link" data-por="${tp.id}" style="background:transparent;border:none;color:var(--gold-2);font-size:1rem;font-weight:800;padding:0;text-decoration:underline;text-underline-offset:3px">${x.tit} ›</button>`:`<b>${x.tit}</b>`;
+    h+=`<div class="card"><h4>${titTap} <span style="font-size:.8rem;color:var(--chalk-dim)">${x.sq}</span><span class="r">${x.cr} cr</span></h4>
       <div class="line"><span class="pill ${col[x.fascia]||'gold'}">${x.fascia}</span></div>
       <div class="line" style="margin-top:5px"><span class="k">Abbina:</span> ${x.vice}</div>
       <div class="sub">${x.note||''}</div></div>`;
   });
-  $('#pane-portieri').innerHTML=h+'</div>';
+  const el=$('#pane-portieri');
+  el.innerHTML=h+'</div>';
+  el.querySelectorAll('.por-link').forEach(b=>b.addEventListener('click',()=>openModal(PLAYERS[+b.dataset.por])));
 }
 
 function renderBug(){
@@ -884,9 +889,27 @@ function openModal(p){
   // suggerimento ballottaggio/rigorista
   let sug='';
   const bal=DATA.ballottaggi.find(b=>b.a===p.n||b.b===p.n);
-  if(bal)sug=`<div class="msug">⚠︎ <b>Ballottaggio</b>: ${bal.a} (${bal.pa}) vs ${bal.b} (${bal.pb}). ${bal.cons}.</div>`;
+  if(bal){
+    // il rivale è l'altro nome del ballottaggio
+    const rivalName=bal.a===p.n?bal.b:bal.a;
+    const rivalPct=bal.a===p.n?bal.pb:bal.pa;
+    const myPct=bal.a===p.n?bal.pa:bal.pb;
+    const rival=PLAYERS.find(x=>x.n===rivalName&&x.s===p.s)||PLAYERS.find(x=>x.n===rivalName);
+    const rivalTap=rival?`<button id="rivalBtn" data-rival="${rival.id}" style="background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--chalk);padding:4px 10px;border-radius:8px;font-size:.82rem;font-weight:700">${rivalName} (${rivalPct}) ›</button>`:`<b>${rivalName} (${rivalPct})</b>`;
+    sug=`<div class="msug">⚠︎ <b>Ballottaggio</b> · ${p.n} gioca ${myPct}<br>
+      <span style="color:var(--chalk-dim);font-size:.8rem">Se lo contende con:</span> ${rivalTap}<br>
+      <span style="color:var(--chalk-dim);font-size:.8rem;margin-top:4px;display:inline-block">${bal.cons}. ${bal.note||''}</span></div>`;
+  }
   const rig=DATA.rigoristi.find(r=>r.p1===p.n||(r.p1&&r.p1.includes(p.n)));
   if(rig&&!sug)sug=`<div class="msug">🎯 <b>Rigorista</b> del ${rig.sq} (${rig.att} rigori attesi)</div>`;
+  // per i portieri: mostra gli altri portieri della stessa squadra (concorrenza in porta)
+  if(p.r==='P'){
+    const mates=PLAYERS.filter(x=>x.r==='P'&&x.s===p.s&&x.id!==p.id).sort((a,b)=>b.q-a.q);
+    if(mates.length){
+      const chips=mates.map(m=>`<button class="por-link" data-por="${m.id}" style="background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--chalk);padding:4px 10px;border-radius:8px;font-size:.82rem;font-weight:700;margin:2px 3px 0 0">${m.n} <span style="color:var(--chalk-dim)">${m.q}</span> ›</button>`).join('');
+      sug+=`<div class="msug" style="border-color:var(--blue)">🧤 <b>Porta ${p.s}</b> · altri portieri:<br>${chips}</div>`;
+    }
+  }
   if(p.inj)sug=`<div class="msug" style="border-color:var(--red);background:var(--red-bg)">🚑 <b>${p.inj}</b>${p.ret?' — rientro '+p.ret:''}</div>`+sug;
   const m=$('#modal');
   m.innerHTML=`
@@ -918,6 +941,8 @@ function openModal(p){
   const rel=$('#release');if(rel)rel.onclick=()=>{delete state.won[p.id];save();closeModal();renderAll();toast(p.n+' rilasciato');};
   const c=$('#cancel');if(c)c.onclick=closeModal;
   const wb=$('#wishBtn');if(wb)wb.onclick=()=>{toggleWish(p);closeModal();};
+  const rb=$('#rivalBtn');if(rb)rb.onclick=()=>{const rid=+rb.dataset.rival;openModal(PLAYERS[rid]);};
+  m.querySelectorAll('.por-link').forEach(b=>b.addEventListener('click',()=>openModal(PLAYERS[+b.dataset.por])));
 }
 function closeModal(){$('#modalBg').classList.remove('on');modalP=null;}
 
